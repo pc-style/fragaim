@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Mouse Smoothing Test (Three.js)</title>
+    <style>
+        body { margin: 0; background-color: #222222; color: #fff; }
+        canvas { display: block; }
+        #instructions {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 1.2em;
+            font-family: sans-serif;
+            cursor: pointer;
+            background-color: rgba(0,0,0,0.7);
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="crosshair"></div>
+    <div id="instructions">
+        <p>Click to start</p>
+        <p>Move mouse to look | Press ESC to unlock cursor</p>
+    </div>
+
+    <!-- Import Map for Three.js modules from CDN -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        // PointerLockControls is no longer used, we implement it manually for sensitivity control
+
+        // --- CONFIG ---
+        const SENSITIVITY = 0.5; // Lower is slower
+        const ENEMY_COUNT = 3;
+        const ENEMY_RADIUS = 1.0;
+        const ENEMY_HEIGHT = 3.0;
+        const ENEMY_SPEED = 20;
+        const ENEMY_COLOR = 0xAF3DAF; // Magenta color from screenshot/previous script
+        const MOVEMENT_BOUNDS = 100;
+        const MIN_DISTANCE_FROM_ORIGIN = 20; // Minimum distance enemies can be from the center
+        const FLOOR_SIZE = 120;
+        const TRAIL_DURATION = 1; // Seconds
+        const TRAIL_DISTANCE = 30; // How far in front of the camera the trail is drawn
+        
+        let scene, camera, renderer;
+        const enemies = [];
+        let clock = new THREE.Clock();
+        let trail, trailLine;
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x222222);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+            camera.position.y = ENEMY_HEIGHT; // Raise camera to character height
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7.5);
+            scene.add(directionalLight);
+
+            // Controls
+            setupControls();
+            
+            // Create Scene Objects
+            createFloor();
+            createStarfield();
+            createEnemies();
+            createTrail();
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize, false);
+
+            // Start Animation
+            animate();
+        }
+
+        function setupControls() {
+            const instructions = document.getElementById('instructions');
+            const crosshair = document.getElementById('crosshair');
+            
+            instructions.addEventListener('click', () => {
+                document.body.requestPointerLock();
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement === document.body) {
+                    instructions.style.display = 'none';
+                    crosshair.style.display = 'block';
+                    document.addEventListener('mousemove', onMouseMove, false);
+                } else {
+                    instructions.style.display = 'flex';
+                    crosshair.style.display = 'none';
+                    document.removeEventListener('mousemove', onMouseMove, false);
+                }
+            }, false);
+        }
+
+        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+        function onMouseMove(event) {
+            const movementX = event.movementX || 0;
+            const movementY = event.movementY || 0;
+            
+            euler.setFromQuaternion(camera.quaternion);
+            
+            euler.y -= movementX * 0.002 * SENSITIVITY;
+            euler.x -= movementY * 0.002 * SENSITIVITY;
+            
+            euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+            
+            camera.quaternion.setFromEuler(euler);
+        }
+
+        function createFloor() {
+            const grid = new THREE.GridHelper(FLOOR_SIZE, FLOOR_SIZE, 0x888888, 0x444444);
+            scene.add(grid);
+        }
+
+        function createStarfield() {
+            const starVertices = [];
+            for (let i = 0; i < 10000; i++) {
+                const x = THREE.MathUtils.randFloatSpread(2000);
+                const y = THREE.MathUtils.randFloatSpread(2000);
+                const z = THREE.MathUtils.randFloatSpread(2000);
+                starVertices.push(x, y, z);
+            }
+            const starGeometry = new THREE.BufferGeometry();
+            starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+            const starMaterial = new THREE.PointsMaterial({ color: 0x888888 });
+            const stars = new THREE.Points(starGeometry, starMaterial);
+            scene.add(stars);
+        }
+
+        function createTrail() {
+            trail = [];
+            const geometry = new THREE.BufferGeometry();
+            const material = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 2 });
+            trailLine = new THREE.Line(geometry, material);
+            scene.add(trailLine);
+        }
+
+        function createEnemies() {
+            const geometry = new THREE.CapsuleGeometry(ENEMY_RADIUS, ENEMY_HEIGHT, 4, 16);
+            const material = new THREE.MeshStandardMaterial({
+                color: ENEMY_COLOR,
+                emissive: ENEMY_COLOR,
+                emissiveIntensity: 0.6
+            });
+
+            for (let i = 0; i < ENEMY_COUNT; i++) {
+                const enemy = new THREE.Mesh(geometry, material);
+
+                enemy.position.set(
+                    THREE.MathUtils.randFloat(-MOVEMENT_BOUNDS / 2, MOVEMENT_BOUNDS / 2),
+                    (ENEMY_HEIGHT / 2) + ENEMY_RADIUS - 1, // Stand on the floor
+                    THREE.MathUtils.randFloat(-MOVEMENT_BOUNDS / 2, MOVEMENT_BOUNDS / 2)
+                );
+
+                const velocity = new THREE.Vector3();
+                velocity.x = THREE.MathUtils.randFloatSpread(ENEMY_SPEED);
+                velocity.y = 0; // Move only on the XZ plane (on the floor)
+                velocity.z = THREE.MathUtils.randFloatSpread(ENEMY_SPEED);
+
+                enemies.push({ mesh: enemy, velocity: velocity });
+                scene.add(enemy);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function updateTrail() {
+            const now = clock.getElapsedTime();
+
+            // Remove old points
+            trail = trail.filter(p => now - p.timestamp < TRAIL_DURATION);
+
+            // Add a new point where the camera is looking
+            const newPointPos = new THREE.Vector3();
+            camera.getWorldDirection(newPointPos);
+            newPointPos.multiplyScalar(TRAIL_DISTANCE).add(camera.position);
+            trail.push({ position: newPointPos, timestamp: now });
+
+            // Update line geometry
+            const positions = [];
+            const colors = [];
+            const trailColor = new THREE.Color(0xffffff);
+            const bgColor = new THREE.Color(0x222222);
+
+            for (const p of trail) {
+                positions.push(p.position.x, p.position.y, p.position.z);
+                const age = (now - p.timestamp) / TRAIL_DURATION; // 0.0 to 1.0
+                const fadedColor = trailColor.clone().lerp(bgColor, age);
+                colors.push(fadedColor.r, fadedColor.g, fadedColor.b);
+            }
+
+            trailLine.geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            trailLine.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            trailLine.geometry.computeBoundingSphere();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            // Update enemies
+            enemies.forEach(enemy => {
+                enemy.mesh.position.addScaledVector(enemy.velocity, delta);
+                
+                const pos = enemy.mesh.position;
+                const vel = enemy.velocity;
+
+                // Bounce off outer XZ boundaries
+                if (Math.abs(pos.x) > MOVEMENT_BOUNDS / 2) vel.x *= -1;
+                if (Math.abs(pos.z) > MOVEMENT_BOUNDS / 2) vel.z *= -1;
+
+                // Bounce off inner circular boundary
+                const distFromOrigin = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+                if (distFromOrigin < MIN_DISTANCE_FROM_ORIGIN) {
+                    // Create a normal vector pointing from origin to the enemy on the XZ plane
+                    const normal = new THREE.Vector3(pos.x, 0, pos.z).normalize();
+                    // Reflect the velocity vector against the normal
+                    vel.reflect(normal);
+                    // Nudge the position to be just outside the boundary to prevent getting stuck
+                    pos.x = normal.x * MIN_DISTANCE_FROM_ORIGIN;
+                    pos.z = normal.z * MIN_DISTANCE_FROM_ORIGIN;
+                }
+            });
+
+            updateTrail();
+
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html> 
