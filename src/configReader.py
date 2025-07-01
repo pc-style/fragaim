@@ -55,6 +55,10 @@ class ConfigReader:
         self.movement_randomness = None
         self.deadzone = None
         self.min_ease_speed = None
+        self.bezier_control_offset = None
+        self.bezier_tension = None
+        self.enable_anti_shake = None
+        self.anti_shake_threshold = None
 
         # Recoil
         self.recoil_mode = None
@@ -162,6 +166,10 @@ class ConfigReader:
         self.movement_randomness = float(self.parser.get('aim', 'movement_randomness', fallback='0.0'))
         self.deadzone = int(self.parser.get('aim', 'deadzone', fallback='0'))
         self.min_ease_speed = float(self.parser.get('aim', 'min_ease_speed', fallback='0.0'))
+        self.bezier_control_offset = float(self.parser.get('aim', 'bezier_control_offset', fallback='0.3'))
+        self.bezier_tension = float(self.parser.get('aim', 'bezier_tension', fallback='1.0'))
+        self.enable_anti_shake = self.parser.getboolean('aim', 'enable_anti_shake', fallback=False)
+        self.anti_shake_threshold = float(self.parser.get('aim', 'anti_shake_threshold', fallback='20.0'))
 
         # Get recoil settings
         value = self.parser.get('recoil', 'mode').lower()

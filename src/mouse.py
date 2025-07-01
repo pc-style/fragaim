@@ -25,11 +25,14 @@ import threading
 
 
 class Mouse:
-    def __init__(self, config):
+    def __init__(self, config, user_input_listener):
         self.com_type = config.com_type
         self.click_thread = threading.Thread(target=self.send_click)
         self.last_click_time = time.time()
         self.target_cps = config.target_cps
+        self.user_input_listener = user_input_listener
+        self.enable_anti_shake = config.enable_anti_shake
+        self.anti_shake_threshold = config.anti_shake_threshold
 
         # Create a lock, so we can use it to not send multiple mouse clicks at the same time
         self.lock = threading.Lock()
@@ -91,6 +94,20 @@ class Mouse:
         y = int(y)
         self.remainder_x -= x
         self.remainder_y -= y
+
+        if self.enable_anti_shake:
+            user_dx, user_dy = self.user_input_listener.get_and_reset_movement()
+            bot_vector = np.array([x, y])
+            user_vector = np.array([user_dx, user_dy])
+
+            # Check if the bot intends to move and the user is moving
+            if np.linalg.norm(bot_vector) > 1.0 and np.linalg.norm(user_vector) > 1.0:
+                # Calculate the magnitude of the vector difference
+                difference_magnitude = np.linalg.norm(bot_vector - user_vector)
+
+                if difference_magnitude > self.anti_shake_threshold:
+                    print(f"Anti-Shake: Canceled move. Bot:({x},{y}), User:({user_dx},{user_dy}), Diff:{difference_magnitude:.1f}")
+                    return # Cancel the command
 
         if x != 0 or y != 0:  # Don't send anything if there's no movement
             match self.com_type:

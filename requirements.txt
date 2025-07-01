@@ -3,4 +3,6 @@ numpy>=1.24.0
 opencv-python>=4.8.0
 pywin32>=308
 pyserial>=3.5
-interception-python>=1.12.4 
+interception-python>=1.12.4
+pynput
+configparser 

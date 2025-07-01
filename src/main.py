@@ -22,6 +22,7 @@ from cheats import Cheats
 from mouse import Mouse
 from screen import Screen
 from utils import Utils
+from user_input import UserInputListener
 
 
 def main():
@@ -41,10 +42,11 @@ Reimplemented with Windows Capture API for improved performance.
         start_time = time.time()
 
         try:
+            user_input_listener = UserInputListener()
             utils = Utils()
             config = utils.config
             cheats = Cheats(config)
-            mouse = Mouse(config)
+            mouse = Mouse(config, user_input_listener)
             screen = Screen(config)
 
             target_frame_time = 1.0 / config.fps if config.fps else 0.016
@@ -75,7 +77,10 @@ Reimplemented with Windows Capture API for improved performance.
                 
                 reload_config = utils.check_key_binds()
                 if reload_config:
-                    print("Config reload requested. Waiting 3 seconds before reconnecting...")
+                    print("Config reload requested. Disconnecting from serial...")
+                    # Close the current connection
+                    mouse.close_connection()
+                    print("Waiting 3 seconds for Pico to process disconnection...")
                     for i in range(3, 0, -1):
                         print(f"Reconnecting in {i}...")
                         time.sleep(1)

@@ -63,9 +63,11 @@ smooth = 0.9                   # Smoothing factor (0-1)
 speed = 0.5                    # Base movement speed
 y_speed = 0.2                  # Vertical speed multiplier
 aim_height = 0.7               # Aim height (0-1)
-smoothing_type = ease_in_out   # linear or ease_in_out
+smoothing_type = bezier        # linear, ease_in_out, or bezier
 ease_factor = 2.0              # Curve intensity for ease_in_out
 min_ease_speed = 0.2           # Minimum speed for ease_in_out
+bezier_control_offset = 0.3    # Control point offset for Bézier curves
+bezier_tension = 1.0           # Tension/curvature of Bézier curves
 movement_randomness = 0.1      # Random movement variation
 deadzone = 10                  # Pixels radius where no movement occurs
 ```
@@ -107,10 +109,13 @@ aim_keys = 0x01                # Mouse1 - Aim activation
 - **Smoothing Types**:
   - `linear`: Traditional exponential smoothing
   - `ease_in_out`: Human-like curved movement with configurable intensity
+  - `bezier`: Cubic Bézier curve smoothing for ultra-smooth, natural movement paths
 
 ### Smoothing Configuration
 - **ease_factor**: Higher values create more pronounced curves (1.0-5.0 recommended)
 - **min_ease_speed**: Prevents movement from becoming too slow (0.0-1.0)
+- **bezier_control_offset**: Controls how far control points are from the direct path (0.0-1.0)
+- **bezier_tension**: Adjusts the curvature intensity of Bézier curves (0.1-2.0)
 - **deadzone**: Stops jitter by ignoring small movements near target
 - **movement_randomness**: Adds subtle human-like variation
 

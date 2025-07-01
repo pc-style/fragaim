@@ -275,6 +275,7 @@ class Screen:
             for contour in filtered_contours:
                 # Make a bounding rectangle for the target
                 rect_x, rect_y, rect_w, rect_h = cv2.boundingRect(contour)
+                # print(rect_x, rect_y, rect_w, rect_h)
 
                 # Calculate the coordinates of the center of the target
                 x = rect_x + rect_w // 2 - self.fov_center[0]
